@@ -5,13 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Axxess Sales TV Dashboard</title>
 
-  <!-- React + Babel + Tailwind -->
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React + ReactDOM + Babel (order matters!) -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Lucide Icons -->
+  <!-- Lucide icons (UMD build) -->
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 
   <style>
@@ -19,9 +21,8 @@
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
       margin: 0;
-      overflow: hidden;
       color: white;
-      font-family: 'Inter', sans-serif;
+      font-family: "Inter", sans-serif;
     }
     .logo {
       height: 70px;
@@ -39,6 +40,7 @@
     function SalesTVDashboard() {
       const [agents, setAgents] = useState([]);
       const [time, setTime] = useState(new Date());
+      const [loading, setLoading] = useState(true);
 
       useEffect(() => {
         loadAgents();
@@ -51,29 +53,37 @@
 
       const loadAgents = () => {
         try {
-          const allKeys = Object.keys(localStorage).filter(k => k.startsWith("agent:"));
-          const loadedAgents = allKeys.map(k => JSON.parse(localStorage.getItem(k)));
-          setAgents(loadedAgents);
-        } catch (err) {
-          console.error("Error loading agents:", err);
+          const keys = Object.keys(localStorage).filter(k => k.startsWith("agent:"));
+          const data = keys.map(k => JSON.parse(localStorage.getItem(k)));
+          setAgents(data);
+          setLoading(false);
+        } catch (e) {
+          console.error("Error loading agents", e);
+          setLoading(false);
         }
       };
 
-      const formatTime = (date) =>
-        date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const formatDate = (date) =>
-        date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      const formatTime = d => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      const formatDate = d => d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
-      const getBarColor = (progress) => {
+      const getBarColor = progress => {
         if (progress >= 100) return "bg-green-500";
         if (progress >= 75) return "bg-blue-500";
         if (progress >= 50) return "bg-yellow-500";
         return "bg-red-500";
       };
 
+      if (loading) {
+        return (
+          <div className="flex items-center justify-center h-screen text-2xl font-semibold">
+            Loading Dashboard...
+          </div>
+        );
+      }
+
       const sortedAgents = [...agents].sort((a, b) => {
-        const progA = a.target > 0 ? (a.sales / a.target) * 100 : 0;
-        const progB = b.target > 0 ? (b.sales / b.target) * 100 : 0;
+        const progA = a.target ? (a.sales / a.target) * 100 : 0;
+        const progB = b.target ? (b.sales / b.target) * 100 : 0;
         return progB - progA;
       });
 
@@ -99,15 +109,13 @@
             </div>
           </div>
 
-          {/* Team Progress Overview */}
+          {/* Team Progress */}
           <div className="bg-white bg-opacity-20 backdrop-blur-md rounded-2xl shadow-lg p-6 mb-10 w-full max-w-4xl text-center">
             <div className="flex items-center justify-center gap-3 mb-4">
               <TrendingUp className="w-8 h-8 text-yellow-300" />
               <h2 className="text-2xl font-bold">Team Progress</h2>
             </div>
-            <div className="text-5xl font-extrabold mb-3">
-              {teamProgress.toFixed(1)}%
-            </div>
+            <div className="text-5xl font-extrabold mb-3">{teamProgress.toFixed(1)}%</div>
             <div className="w-full bg-gray-300 rounded-full h-5 overflow-hidden">
               <div
                 className={`h-full transition-all duration-1000 ${getBarColor(teamProgress)}`}
@@ -116,39 +124,38 @@
             </div>
           </div>
 
-          {/* Agent List */}
+          {/* Agents */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
-            {sortedAgents.map((agent, idx) => {
-              const progress = agent.target > 0 ? (agent.sales / agent.target) * 100 : 0;
-              const trophyColor =
-                idx === 0
-                  ? "text-yellow-400"
-                  : idx === 1
-                  ? "text-gray-300"
-                  : idx === 2
-                  ? "text-amber-600"
-                  : "text-purple-300";
+            {sortedAgents.length === 0 ? (
+              <p className="col-span-full text-center text-lg opacity-80">
+                No agents found. Please add agents in the Management Console.
+              </p>
+            ) : (
+              sortedAgents.map((agent, idx) => {
+                const progress = agent.target ? (agent.sales / agent.target) * 100 : 0;
+                const trophyColor =
+                  idx === 0 ? "text-yellow-400" :
+                  idx === 1 ? "text-gray-300" :
+                  idx === 2 ? "text-amber-600" : "text-purple-300";
 
-              return (
-                <div
-                  key={agent.id || idx}
-                  className="bg-white bg-opacity-20 backdrop-blur-md rounded-2xl shadow-lg p-5 flex flex-col items-center text-center"
-                >
-                  <Trophy className={`w-8 h-8 mb-2 ${trophyColor}`} />
-                  <h3 className="text-2xl font-bold mb-1">{agent.name}</h3>
-                  <p className="text-lg font-semibold mb-3">{progress.toFixed(1)}%</p>
-                  <div className="w-full bg-gray-300 rounded-full h-4 overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-1000 ${getBarColor(progress)}`}
-                      style={{ width: `${Math.min(progress, 100)}%` }}
-                    ></div>
+                return (
+                  <div key={agent.id || idx} className="bg-white bg-opacity-20 backdrop-blur-md rounded-2xl shadow-lg p-5 flex flex-col items-center text-center">
+                    <Trophy className={`w-8 h-8 mb-2 ${trophyColor}`} />
+                    <h3 className="text-2xl font-bold mb-1">{agent.name}</h3>
+                    <p className="text-lg font-semibold mb-3">{progress.toFixed(1)}%</p>
+                    <div className="w-full bg-gray-300 rounded-full h-4 overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-1000 ${getBarColor(progress)}`}
+                        style={{ width: `${Math.min(progress, 100)}%` }}
+                      ></div>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
 
-          {/* Footer Banner */}
+          {/* Footer */}
           <div className="mt-10 text-lg font-semibold opacity-90 animate-pulse">
             💜 Keep up the great work, Team Axxess! 💜
           </div>
@@ -156,7 +163,8 @@
       );
     }
 
-    ReactDOM.createRoot(document.getElementById("root")).render(<SalesTVDashboard />);
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<SalesTVDashboard />);
   </script>
 </body>
 </html>
