@@ -12,7 +12,244 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        // PASTE THE ENTIRE REACT CODE FROM "Sales Agent Interface" ARTIFACT HERE
+       import React, { useState, useEffect } from 'react';
+import { TrendingUp, Target, DollarSign, User, Building2 } from 'lucide-react';
+
+export default function SalesAgentInterface() {
+  const [agentName, setAgentName] = useState('');
+  const [department, setDepartment] = useState('');
+  const [target, setTarget] = useState('');
+  const [saleAmount, setSaleAmount] = useState('');
+  const [currentAgent, setCurrentAgent] = useState(null);
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadAgentData();
+  }, [agentName, department]);
+
+  const loadAgentData = async () => {
+    if (!agentName.trim() || !department) {
+      setCurrentAgent(null);
+      return;
+    }
+
+    try {
+      const result = await window.storage.get(`agent:${department}:${agentName.toLowerCase()}`, true);
+      if (result) {
+        setCurrentAgent(JSON.parse(result.value));
+      } else {
+        setCurrentAgent(null);
+      }
+    } catch (error) {
+      setCurrentAgent(null);
+    }
+  };
+
+  const handleSetTarget = async () => {
+    if (!agentName.trim() || !department || !target) {
+      setMessage('Please enter your name, department, and target amount');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const agentData = {
+        name: agentName,
+        department: department,
+        target: parseFloat(target),
+        sales: currentAgent?.sales || 0,
+        lastUpdated: new Date().toISOString()
+      };
+
+      await window.storage.set(`agent:${department}:${agentName.toLowerCase()}`, JSON.stringify(agentData), true);
+      setCurrentAgent(agentData);
+      setMessage('Target set successfully!');
+      setTarget('');
+    } catch (error) {
+      setMessage('Error setting target. Please try again.');
+    }
+    setLoading(false);
+  };
+
+  const handleAddSale = async () => {
+    if (!agentName.trim() || !department || !saleAmount) {
+      setMessage('Please enter your name, department, and sale amount');
+      return;
+    }
+
+    if (!currentAgent) {
+      setMessage('Please set your target first');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const agentData = {
+        ...currentAgent,
+        sales: currentAgent.sales + parseFloat(saleAmount),
+        lastUpdated: new Date().toISOString()
+      };
+
+      await window.storage.set(`agent:${department}:${agentName.toLowerCase()}`, JSON.stringify(agentData), true);
+      setCurrentAgent(agentData);
+      setMessage(`Sale of R${parseFloat(saleAmount).toLocaleString()} added successfully!`);
+      setSaleAmount('');
+    } catch (error) {
+      setMessage('Error adding sale. Please try again.');
+    }
+    setLoading(false);
+  };
+
+  const progress = currentAgent ? (currentAgent.sales / currentAgent.target) * 100 : 0;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-yellow-100 p-4">
+      <div className="max-w-md mx-auto pt-8">
+        <div className="bg-white rounded-2xl shadow-xl p-6 mb-4">
+          <div className="flex items-center justify-center mb-6">
+            <TrendingUp className="w-10 h-10 text-green-600 mr-3" />
+            <h1 className="text-3xl font-bold text-gray-800">Sales Agent</h1>
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <User className="w-4 h-4 inline mr-1" />
+              Your Name
+            </label>
+            <input
+              type="text"
+              value={agentName}
+              onChange={(e) => setAgentName(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              placeholder="Enter your name"
+            />
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Building2 className="w-4 h-4 inline mr-1" />
+              Department
+            </label>
+            <select
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+            >
+              <option value="">Select Department</option>
+              <option value="sales">Sales</option>
+              <option value="clientcare">Client Care</option>
+            </select>
+          </div>
+
+          {currentAgent && (
+            <div className="mb-6 p-4 bg-green-50 rounded-lg">
+              <div className="text-center mb-2">
+                <span className="inline-block px-3 py-1 bg-green-600 text-white rounded-full text-xs font-semibold">
+                  {currentAgent.department === 'sales' ? 'SALES' : 'CLIENT CARE'}
+                </span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">Progress</span>
+                <span className="text-sm font-bold text-green-600">
+                  {progress.toFixed(1)}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3 mb-3">
+                <div
+                  className="bg-green-600 h-3 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(progress, 100)}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">
+                  Sales: <span className="font-bold">R{currentAgent.sales.toLocaleString()}</span>
+                </span>
+                <span className="text-gray-600">
+                  Target: <span className="font-bold">R{currentAgent.target.toLocaleString()}</span>
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Target className="w-4 h-4 inline mr-1" />
+              Set Your Target (ZAR)
+            </label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
+                  R
+                </span>
+                <input
+                  type="number"
+                  value={target}
+                  onChange={(e) => setTarget(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSetTarget()}
+                  className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="10000"
+                  step="0.01"
+                />
+              </div>
+              <button
+                onClick={handleSetTarget}
+                disabled={loading}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:bg-gray-400"
+              >
+                Set
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <DollarSign className="w-4 h-4 inline mr-1" />
+              Add Sale (ZAR)
+            </label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
+                  R
+                </span>
+                <input
+                  type="number"
+                  value={saleAmount}
+                  onChange={(e) => setSaleAmount(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddSale()}
+                  className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  placeholder="500"
+                  step="0.01"
+                />
+              </div>
+              <button
+                onClick={handleAddSale}
+                disabled={loading}
+                className="px-6 py-3 bg-yellow-600 text-white rounded-lg font-medium hover:bg-yellow-700 transition-colors disabled:bg-gray-400"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+
+          {message && (
+            <div className={`mt-4 p-3 rounded-lg text-sm ${
+              message.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+            }`}>
+              {message}
+            </div>
+          )}
+        </div>
+
+        <div className="text-center text-sm text-gray-600">
+          <p>Select your department, enter your name,</p>
+          <p>set your target, then log sales as you make them!</p>
+        </div>
+      </div>
+    </div>
+  );
+}
     </script>
 </body>
+
 </html>
