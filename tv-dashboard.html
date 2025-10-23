@@ -12,7 +12,245 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        // PASTE THE ENTIRE REACT CODE FROM "Sales TV Dashboard" ARTIFACT HERE
+       import React, { useState, useEffect } from 'react';
+import { Trophy, TrendingUp } from 'lucide-react';
+
+export default function SalesDashboard() {
+  const [agents, setAgents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadAgents();
+    const interval = setInterval(loadAgents, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadAgents = async () => {
+    try {
+      const result = await window.storage.list('agent:', true);
+      if (result && result.keys) {
+        const agentData = await Promise.all(
+          result.keys.map(async (key) => {
+            try {
+              const data = await window.storage.get(key, true);
+              return data ? JSON.parse(data.value) : null;
+            } catch {
+              return null;
+            }
+          })
+        );
+        setAgents(agentData.filter(a => a !== null));
+      }
+    } catch (error) {
+      console.error('Error loading agents:', error);
+    }
+    setLoading(false);
+  };
+
+  const salesDept = agents.filter(a => a.department === 'Sales')
+    .sort((a, b) => {
+      const progressA = a.target > 0 ? (a.sales / a.target) * 100 : 0;
+      const progressB = b.target > 0 ? (b.sales / b.target) * 100 : 0;
+      return progressB - progressA;
+    });
+
+  const clientCareDept = agents.filter(a => a.department === 'Client Care')
+    .sort((a, b) => {
+      const progressA = a.target > 0 ? (a.sales / a.target) * 100 : 0;
+      const progressB = b.target > 0 ? (b.sales / b.target) * 100 : 0;
+      return progressB - progressA;
+    });
+
+  const calculateTeamStats = (deptAgents) => {
+    const totalSales = deptAgents.reduce((sum, a) => sum + a.sales, 0);
+    const totalTarget = deptAgents.reduce((sum, a) => sum + a.target, 0);
+    const progress = totalTarget > 0 ? (totalSales / totalTarget) * 100 : 0;
+    return { totalSales, totalTarget, progress };
+  };
+
+  const salesStats = calculateTeamStats(salesDept);
+  const clientCareStats = calculateTeamStats(clientCareDept);
+  const overallStats = calculateTeamStats(agents);
+
+  const getTrophyIcon = (index) => {
+    if (index === 0) return <Trophy className="w-8 h-8 text-yellow-400" />;
+    if (index === 1) return <Trophy className="w-7 h-7 text-gray-400" />;
+    if (index === 2) return <Trophy className="w-6 h-6 text-amber-600" />;
+    return null;
+  };
+
+  const DepartmentSection = ({ title, agents, stats, color }) => (
+    <div className="bg-white rounded-3xl shadow-2xl p-8">
+      <div className="mb-6">
+        <h2 className={`text-4xl font-bold ${color} mb-4 flex items-center gap-3`}>
+          <TrendingUp className="w-10 h-10" />
+          {title}
+        </h2>
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-6">
+          <div className="grid grid-cols-3 gap-6">
+            <div>
+              <p className="text-sm text-gray-600 font-medium mb-1">TEAM TARGET</p>
+              <p className="text-3xl font-bold text-gray-800">
+                R {stats.totalTarget.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 font-medium mb-1">TOTAL SALES</p>
+              <p className="text-3xl font-bold text-green-600">
+                R {stats.totalSales.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 font-medium mb-1">TEAM PROGRESS</p>
+              <p className="text-3xl font-bold text-purple-600">
+                {stats.progress.toFixed(1)}%
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+            <div
+              className={`h-full transition-all duration-1000 ${
+                stats.progress >= 100 ? 'bg-green-500' : 
+                stats.progress >= 75 ? 'bg-blue-500' : 
+                stats.progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+              }`}
+              style={{ width: `${Math.min(stats.progress, 100)}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {agents.length === 0 ? (
+          <p className="text-center text-gray-500 text-2xl py-8">No agents yet</p>
+        ) : (
+          agents.map((agent, index) => {
+            const progress = agent.target > 0 ? (agent.sales / agent.target) * 100 : 0;
+            return (
+              <div
+                key={agent.id}
+                className={`relative rounded-2xl p-6 transition-all duration-300 ${
+                  index < 3 ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200' : 'bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white shadow-md">
+                      {index < 3 ? (
+                        getTrophyIcon(index)
+                      ) : (
+                        <span className="text-2xl font-bold text-gray-600">#{index + 1}</span>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-3xl font-bold text-gray-800">{agent.name}</h3>
+                      {progress >= 100 && (
+                        <span className="inline-block mt-1 px-3 py-1 bg-green-500 text-white text-sm font-bold rounded-full">
+                          🎯 TARGET ACHIEVED!
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-semibold text-gray-600">
+                      R {agent.sales.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className={`text-3xl font-bold ${
+                      progress >= 100 ? 'text-green-600' : 
+                      progress >= 75 ? 'text-blue-600' : 
+                      progress >= 50 ? 'text-yellow-600' : 'text-red-600'
+                    }`}>
+                      {progress.toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-1000 ${
+                      progress >= 100 ? 'bg-green-500' : 
+                      progress >= 75 ? 'bg-blue-500' : 
+                      progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                    }`}
+                    style={{ width: `${Math.min(progress, 100)}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 flex items-center justify-center">
+        <div className="text-white text-4xl font-bold">Loading Dashboard...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-8">
+      <div className="max-w-[1800px] mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-7xl font-bold text-white mb-4 drop-shadow-lg">
+            🏆 SALES LEADERBOARD 🏆
+          </h1>
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 inline-block">
+            <p className="text-2xl text-white font-semibold mb-2">OVERALL TEAM PERFORMANCE</p>
+            <div className="grid grid-cols-3 gap-8">
+              <div>
+                <p className="text-lg text-white/80 mb-1">Total Target</p>
+                <p className="text-4xl font-bold text-white">
+                  R {overallStats.totalTarget.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div>
+                <p className="text-lg text-white/80 mb-1">Total Sales</p>
+                <p className="text-4xl font-bold text-green-400">
+                  R {overallStats.totalSales.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div>
+                <p className="text-lg text-white/80 mb-1">Progress</p>
+                <p className="text-4xl font-bold text-yellow-400">
+                  {overallStats.progress.toFixed(1)}%
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 w-full bg-white/20 rounded-full h-6 overflow-hidden">
+              <div
+                className={`h-full transition-all duration-1000 ${
+                  overallStats.progress >= 100 ? 'bg-green-400' : 
+                  overallStats.progress >= 75 ? 'bg-blue-400' : 
+                  overallStats.progress >= 50 ? 'bg-yellow-400' : 'bg-red-400'
+                }`}
+                style={{ width: `${Math.min(overallStats.progress, 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <DepartmentSection 
+            title="Sales Department" 
+            agents={salesDept}
+            stats={salesStats}
+            color="text-blue-600"
+          />
+          <DepartmentSection 
+            title="Client Care Department" 
+            agents={clientCareDept}
+            stats={clientCareStats}
+            color="text-green-600"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
     </script>
 </body>
+
 </html>
