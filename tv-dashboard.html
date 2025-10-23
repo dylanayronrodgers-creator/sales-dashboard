@@ -1,170 +1,89 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sales TV Dashboard</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TV Dashboard — Axxess</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root{--bg1:#667eea;--bg2:#764ba2;}
+    *{box-sizing:border-box;}
+    body{
+      margin:0; min-height:100vh; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      background: linear-gradient(135deg,var(--bg1),var(--bg2)); color:white; display:flex; align-items:center; justify-content:center; padding:20px;
+    }
+    .wrap { width:100%; max-width:1200px; }
+    header { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+    header img { width:72px; height:72px; border-radius:10px; object-fit:cover; box-shadow:0 10px 30px rgba(0,0,0,0.3); }
+    h1 { margin:0; font-size:28px; }
+    .grid { display:grid; gap:18px; grid-template-columns: 1fr 1fr; }
+    .card { background: rgba(255,255,255,0.06); padding:14px; border-radius:14px; box-shadow:0 8px 20px rgba(0,0,0,0.25); }
+    .agentRow { display:flex; align-items:center; justify-content:space-between; padding:10px 6px; border-radius:10px; }
+    .agentLeft { display:flex; gap:12px; align-items:center; }
+    .pill { background: rgba(255,255,255,0.08); padding:6px 10px; border-radius:999px; font-weight:700; }
+    .barOuter { width:240px; height:12px; background: rgba(255,255,255,0.06); border-radius:999px; overflow:hidden; }
+    .barInner { height:100%; background: linear-gradient(90deg,#34d399,#3b82f6); }
+    .center { text-align:center; }
+    .big { font-size:36px; font-weight:800; }
+    .muted { opacity:0.9; font-size:15px; }
+    @media (max-width:900px){
+      .grid { grid-template-columns: 1fr; }
+      .barOuter { width:160px; }
+      .big { font-size:28px; }
+    }
+  </style>
 </head>
-<body class="bg-gray-100">
-  <div id="root"></div>
+<body>
+  <div id="root" class="wrap"></div>
 
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    function SalesDashboard() {
+    function TVDashboard(){
       const [agents, setAgents] = useState([]);
-      const [loading, setLoading] = useState(true);
+      const [now, setNow] = useState(Date.now());
 
-      useEffect(() => {
-        loadAgents();
-        const interval = setInterval(loadAgents, 5000);
-        return () => clearInterval(interval);
+      useEffect(()=> {
+        load();
+        const i = setInterval(()=> { load(); }, 5000);
+        const tick = setInterval(()=> setNow(Date.now()), 1000);
+        // listen to storage events
+        const onStorage = (e) => {
+          if (e.key && (e.key.startsWith('agent:') || e.key === '__axxess_last_update')){
+            load();
+          }
+        };
+        window.addEventListener('storage', onStorage);
+        return ()=> { clearInterval(i); clearInterval(tick); window.removeEventListener('storage', onStorage); }
       }, []);
 
-      const loadAgents = () => {
-        const keys = Object.keys(localStorage).filter(k => k.startsWith('agent:'));
-        const data = keys.map(k => JSON.parse(localStorage.getItem(k)));
+      function load(){
+        const keys = Object.keys(localStorage).filter(k=>k.startsWith('agent:'));
+        const data = keys.map(k => JSON.parse(localStorage.getItem(k))).filter(Boolean);
+        // sort by progress desc
+        data.forEach(a => { a.progress = a.target ? (Number(a.sales || 0) / Number(a.target)) * 100 : 0; });
+        data.sort((a,b)=> (b.progress || 0) - (a.progress || 0));
         setAgents(data);
-        setLoading(false);
-      };
-
-      const calcStats = (deptAgents) => {
-        const totalSales = deptAgents.reduce((sum, a) => sum + (a.sales || 0), 0);
-        const totalTarget = deptAgents.reduce((sum, a) => sum + (a.target || 0), 0);
-        const progress = totalTarget > 0 ? (totalSales / totalTarget) * 100 : 0;
-        return { totalSales, totalTarget, progress };
-      };
-
-      const sortByProgress = (a, b) => {
-        const progressA = a.target > 0 ? (a.sales / a.target) * 100 : 0;
-        const progressB = b.target > 0 ? (b.sales / b.target) * 100 : 0;
-        return progressB - progressA;
-      };
-
-      const salesAgents = agents.filter(a => a.department === 'Sales').sort(sortByProgress);
-      const clientAgents = agents.filter(a => a.department === 'Client Care').sort(sortByProgress);
-
-      const overallStats = calcStats(agents);
-      const salesStats = calcStats(salesAgents);
-      const clientStats = calcStats(clientAgents);
-
-      const Trophy = ({ index }) => {
-        const colors = ['text-yellow-400', 'text-gray-400', 'text-amber-600'];
-        return index < 3 ? (
-          <span className={`text-3xl ${colors[index]}`}>🏆</span>
-        ) : null;
-      };
-
-      const Department = ({ title, color, stats, deptAgents }) => (
-        <div className="bg-white rounded-3xl shadow-2xl p-8">
-          <h2 className={`text-4xl font-bold flex items-center gap-3 mb-6 ${color}`}>
-            📈 {title}
-          </h2>
-          <div className="grid grid-cols-3 gap-4 text-center mb-6">
-            <div>
-              <p className="text-gray-500 text-sm">TEAM TARGET</p>
-              <p className="text-2xl font-bold">R {stats.totalTarget.toLocaleString()}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 text-sm">TOTAL SALES</p>
-              <p className="text-2xl font-bold text-green-600">R {stats.totalSales.toLocaleString()}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 text-sm">PROGRESS</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.progress.toFixed(1)}%</p>
-            </div>
-          </div>
-
-          <div className="bg-gray-200 rounded-full h-4 mb-8 overflow-hidden">
-            <div
-              className={`h-4 ${
-                stats.progress >= 100 ? 'bg-green-600' :
-                stats.progress >= 75 ? 'bg-blue-600' :
-                stats.progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
-              }`}
-              style={{ width: `${Math.min(stats.progress, 100)}%` }}
-            />
-          </div>
-
-          {deptAgents.length === 0 ? (
-            <p className="text-gray-600 italic">No agents found.</p>
-          ) : (
-            <div className="space-y-4">
-              {deptAgents.map((a, i) => {
-                const progress = a.target > 0 ? (a.sales / a.target) * 100 : 0;
-                return (
-                  <div key={a.id} className="bg-gray-50 rounded-xl p-4 shadow flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <Trophy index={i} />
-                      <div>
-                        <p className="font-bold text-lg">{a.name}</p>
-                        <p className="text-sm text-gray-600">
-                          R {a.sales.toLocaleString()} / R {a.target.toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-semibold">{progress.toFixed(1)}%</p>
-                      <div className="w-32 bg-gray-200 rounded-full h-2 mt-1">
-                        <div
-                          className={`h-2 rounded-full ${
-                            progress >= 100 ? 'bg-green-600' :
-                            progress >= 75 ? 'bg-blue-600' :
-                            progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
-                          }`}
-                          style={{ width: `${Math.min(progress, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      );
-
-      if (loading) {
-        return <div className="flex items-center justify-center h-screen text-3xl">Loading...</div>;
       }
 
+      // Team totals use all agents' target+sales
+      const teamSales = agents.reduce((s,a)=> s + Number(a.sales || 0), 0);
+      const teamTarget = agents.reduce((s,a)=> s + Number(a.target || 0), 0);
+      const teamProgress = teamTarget > 0 ? (teamSales / teamTarget) * 100 : 0;
+
       return (
-        <div className="min-h-screen p-6 bg-gradient-to-br from-yellow-50 to-green-50">
-          <h1 className="text-center text-5xl font-extrabold mb-10 text-green-700 drop-shadow-lg">
-            🏆 Sales TV Dashboard
-          </h1>
-
-          <div className="grid lg:grid-cols-2 gap-8">
-            <Department title="Sales Department" color="text-green-700" stats={salesStats} deptAgents={salesAgents} />
-            <Department title="Client Care Department" color="text-purple-700" stats={clientStats} deptAgents={clientAgents} />
-          </div>
-
-          <div className="mt-12 text-center bg-white rounded-3xl shadow-xl py-6">
-            <p className="text-xl font-semibold text-gray-700">Overall Company Progress</p>
-            <p className="text-4xl font-bold text-green-600 mt-2">{overallStats.progress.toFixed(1)}%</p>
-            <div className="w-3/4 mx-auto bg-gray-200 rounded-full h-5 mt-4">
-              <div
-                className={`h-5 rounded-full ${
-                  overallStats.progress >= 100 ? 'bg-green-600' :
-                  overallStats.progress >= 75 ? 'bg-blue-600' :
-                  overallStats.progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
-                }`}
-                style={{ width: `${Math.min(overallStats.progress, 100)}%` }}
-              />
+        <div>
+          <header>
+            <img src="https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.facebook.com%2FAxxess.Internet%2F&psig=AOvVaw2YpDMUMY_-TjVgyI3Cuy0U&ust=1761312122907000&source=images&cd=vfe&opi=89978449&ved=0CBUQjRxqFwoTCPja__C2upADFQAAAAAdAAAAABAK" alt="Logo" />
+            <div>
+              <h1>Axxess — Live Sales TV</h1>
+              <div className="muted">Displaying progress % only. Team totals drive the team progress metric.</div>
             </div>
-          </div>
-        </div>
-      );
-    }
+          </header>
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<SalesDashboard />);
-  </script>
-
-</body>
-</html>
+          <div className="grid" style={{marginTop:12}}>
+            <div className="card">
+              <div className="center">
+                <
