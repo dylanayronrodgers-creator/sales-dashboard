@@ -1,173 +1,162 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Axxess Sales TV Dashboard</title>
+
+  <!-- React + Babel + Tailwind -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      color: white;
+      font-family: 'Inter', sans-serif;
+    }
+    .logo {
+      height: 70px;
+      object-fit: contain;
+    }
+  </style>
 </head>
-<body class="bg-gradient-to-br from-[#667eea] to-[#764ba2] min-h-screen text-white">
+<body>
   <div id="root"></div>
 
   <script type="text/babel">
     const { useState, useEffect } = React;
-    const { Trophy, TrendingUp, Clock } = lucideReact;
+    const { TrendingUp, Trophy } = lucide;
 
     function SalesTVDashboard() {
       const [agents, setAgents] = useState([]);
-      const [loading, setLoading] = useState(true);
-      const [currentTime, setCurrentTime] = useState(new Date());
+      const [time, setTime] = useState(new Date());
 
       useEffect(() => {
         loadAgents();
-        const interval = setInterval(loadAgents, 5000);
-        const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
-        return () => {
-          clearInterval(interval);
-          clearInterval(clockInterval);
-        };
+        const interval = setInterval(() => {
+          loadAgents();
+          setTime(new Date());
+        }, 5000);
+        return () => clearInterval(interval);
       }, []);
 
-      const loadAgents = async () => {
+      const loadAgents = () => {
         try {
-          const result = await window.storage.list("agent:", true);
-          if (result && result.keys) {
-            const agentData = await Promise.all(
-              result.keys.map(async (key) => {
-                try {
-                  const data = await window.storage.get(key, true);
-                  return data ? JSON.parse(data.value) : null;
-                } catch {
-                  return null;
-                }
-              })
-            );
-            setAgents(agentData.filter((a) => a !== null));
-          }
-        } catch (error) {
-          console.error("Error loading agents:", error);
+          const allKeys = Object.keys(localStorage).filter(k => k.startsWith("agent:"));
+          const loadedAgents = allKeys.map(k => JSON.parse(localStorage.getItem(k)));
+          setAgents(loadedAgents);
+        } catch (err) {
+          console.error("Error loading agents:", err);
         }
-        setLoading(false);
       };
 
-      const calculateTeamStats = (deptAgents) => {
-        const totalSales = deptAgents.reduce((sum, a) => sum + (a.sales || 0), 0);
-        const totalTarget = deptAgents.reduce((sum, a) => sum + (a.target || 0), 0);
-        const progress = totalTarget > 0 ? (totalSales / totalTarget) * 100 : 0;
-        return { totalSales, totalTarget, progress };
-      };
-
-      const salesDept = agents.filter((a) => a.department === "Sales");
-      const clientCareDept = agents.filter((a) => a.department === "Client Care");
-
-      const salesStats = calculateTeamStats(salesDept);
-      const clientCareStats = calculateTeamStats(clientCareDept);
+      const formatTime = (date) =>
+        date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const formatDate = (date) =>
+        date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
       const getBarColor = (progress) => {
-        if (progress >= 100) return "bg-green-400";
-        if (progress >= 75) return "bg-blue-400";
-        if (progress >= 50) return "bg-yellow-400";
-        return "bg-red-400";
+        if (progress >= 100) return "bg-green-500";
+        if (progress >= 75) return "bg-blue-500";
+        if (progress >= 50) return "bg-yellow-500";
+        return "bg-red-500";
       };
 
-      const DepartmentSection = ({ title, agents, stats }) => (
-        <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 shadow-2xl mb-10">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-4xl font-bold flex items-center gap-3">
-              <TrendingUp className="w-10 h-10" /> {title}
-            </h2>
+      const sortedAgents = [...agents].sort((a, b) => {
+        const progA = a.target > 0 ? (a.sales / a.target) * 100 : 0;
+        const progB = b.target > 0 ? (b.sales / b.target) * 100 : 0;
+        return progB - progA;
+      });
+
+      const totalSales = agents.reduce((sum, a) => sum + a.sales, 0);
+      const totalTarget = agents.reduce((sum, a) => sum + a.target, 0);
+      const teamProgress = totalTarget > 0 ? (totalSales / totalTarget) * 100 : 0;
+
+      return (
+        <div className="flex flex-col items-center justify-start min-h-screen py-8 px-6">
+          {/* Header */}
+          <div className="w-full flex justify-between items-center mb-10">
+            <div className="flex items-center gap-4">
+              <img
+                src="https://scontent-cpt1-1.xx.fbcdn.net/v/t39.30808-6/297076908_5528896830478718_3290314377451029782_n.png?_nc_cat=104&ccb=1-7&_nc_sid=bd6e70&_nc_ohc=6bZyi76hVbYQ7kNvgEbLpl8&_nc_ht=scontent-cpt1-1.xx&oh=00_AYCjz6djI4I05x6WEC7mZ7WZTf8t62eYlJLu0kAsgPSV6A&oe=672F58AA"
+                alt="Axxess Logo"
+                className="logo"
+              />
+              <h1 className="text-4xl font-bold tracking-tight">Sales Dashboard</h1>
+            </div>
             <div className="text-right">
-              <p className="text-sm opacity-80">Team Progress</p>
-              <p className="text-3xl font-bold text-green-300">{stats.progress.toFixed(1)}%</p>
+              <p className="text-lg font-semibold">{formatTime(time)}</p>
+              <p className="text-sm opacity-80">{formatDate(time)}</p>
             </div>
           </div>
 
-          <div className="w-full bg-white/20 rounded-full h-4 overflow-hidden mb-8">
-            <div
-              className={`h-full transition-all duration-1000 ${getBarColor(stats.progress)}`}
-              style={{ width: `${Math.min(stats.progress, 100)}%` }}
-            ></div>
+          {/* Team Progress Overview */}
+          <div className="bg-white bg-opacity-20 backdrop-blur-md rounded-2xl shadow-lg p-6 mb-10 w-full max-w-4xl text-center">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <TrendingUp className="w-8 h-8 text-yellow-300" />
+              <h2 className="text-2xl font-bold">Team Progress</h2>
+            </div>
+            <div className="text-5xl font-extrabold mb-3">
+              {teamProgress.toFixed(1)}%
+            </div>
+            <div className="w-full bg-gray-300 rounded-full h-5 overflow-hidden">
+              <div
+                className={`h-full transition-all duration-1000 ${getBarColor(teamProgress)}`}
+                style={{ width: `${Math.min(teamProgress, 100)}%` }}
+              ></div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {agents.length === 0 ? (
-              <p className="text-gray-200 text-center col-span-2">No agents found</p>
-            ) : (
-              agents.map((a, idx) => {
-                const progress = a.target > 0 ? (a.sales / a.target) * 100 : 0;
-                return (
-                  <div
-                    key={a.id}
-                    className="bg-white/10 p-6 rounded-2xl shadow-md transition-transform hover:scale-[1.02]"
-                  >
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-2xl font-semibold">{a.name}</h3>
-                      {idx === 0 && <Trophy className="text-yellow-400 w-8 h-8" />}
-                    </div>
-                    <div className="w-full bg-white/20 rounded-full h-3 mb-2">
-                      <div
-                        className={`h-full ${getBarColor(progress)} transition-all duration-1000`}
-                        style={{ width: `${Math.min(progress, 100)}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-sm opacity-80">{progress.toFixed(1)}% to target</p>
+          {/* Agent List */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
+            {sortedAgents.map((agent, idx) => {
+              const progress = agent.target > 0 ? (agent.sales / agent.target) * 100 : 0;
+              const trophyColor =
+                idx === 0
+                  ? "text-yellow-400"
+                  : idx === 1
+                  ? "text-gray-300"
+                  : idx === 2
+                  ? "text-amber-600"
+                  : "text-purple-300";
+
+              return (
+                <div
+                  key={agent.id || idx}
+                  className="bg-white bg-opacity-20 backdrop-blur-md rounded-2xl shadow-lg p-5 flex flex-col items-center text-center"
+                >
+                  <Trophy className={`w-8 h-8 mb-2 ${trophyColor}`} />
+                  <h3 className="text-2xl font-bold mb-1">{agent.name}</h3>
+                  <p className="text-lg font-semibold mb-3">{progress.toFixed(1)}%</p>
+                  <div className="w-full bg-gray-300 rounded-full h-4 overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-1000 ${getBarColor(progress)}`}
+                      style={{ width: `${Math.min(progress, 100)}%` }}
+                    ></div>
                   </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      );
-
-      const formattedTime = currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      const formattedDate = currentTime.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
-
-      return (
-        <div className="min-h-screen p-8 relative">
-          {/* Clock */}
-          <div className="absolute top-6 right-8 text-right">
-            <p className="text-2xl font-semibold">{formattedTime}</p>
-            <p className="text-sm opacity-80">{formattedDate}</p>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Logo */}
-          <div className="flex justify-center mb-10">
-            <img
-              src="https://scontent.fplz1-1.fna.fbcdn.net/v/t39.30808-6/272700933_5148348905178892_6403204965564743457_n.png?_nc_cat=108&ccb=1-7&_nc_sid=783fdb&_nc_ohc=AA7lmVPRCSsQ7kNvgF0Q5T4&_nc_ht=scontent.fplz1-1.fna&oh=00_AYCgg3vGtrmWktSrxniEytP9G9-8A0uKjM9ac1vw4rMXqA&oe=6768C0E9"
-              alt="Axxess Logo"
-              className="h-24 drop-shadow-lg"
-            />
+          {/* Footer Banner */}
+          <div className="mt-10 text-lg font-semibold opacity-90 animate-pulse">
+            💜 Keep up the great work, Team Axxess! 💜
           </div>
-
-          <h1 className="text-5xl font-bold mb-10 text-white drop-shadow-md text-center">
-            Axxess Sales Performance Dashboard
-          </h1>
-
-          {loading ? (
-            <p className="text-center text-lg text-gray-100">Loading data...</p>
-          ) : (
-            <>
-              <DepartmentSection title="Sales Department" agents={salesDept} stats={salesStats} />
-              <DepartmentSection title="Client Care Department" agents={clientCareDept} stats={clientCareStats} />
-            </>
-          )}
         </div>
       );
     }
 
-    const root = ReactDOM.createRoot(document.getElementById("root"));
-    root.render(<SalesTVDashboard />);
+    ReactDOM.createRoot(document.getElementById("root")).render(<SalesTVDashboard />);
   </script>
-
- <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<script type="text/babel">
-  const { useState, useEffect } = React;
-  const { Trophy, TrendingUp } = lucide;
-
 </body>
 </html>
-
