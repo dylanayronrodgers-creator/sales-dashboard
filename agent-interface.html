@@ -1,183 +1,219 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sales Agent Interface</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Agent Interface — Axxess</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Reuse purple index look */
+    :root { --bg1:#667eea; --bg2:#764ba2; --card:#fff; }
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      background: linear-gradient(135deg,var(--bg1),var(--bg2));
+      display:flex; align-items:center; justify-content:center; padding:24px; color:#0f172a;
+    }
+    .panel{
+      width:100%; max-width:820px; background: rgba(255,255,255,0.95); border-radius:16px; padding:20px; box-shadow:0 12px 30px rgba(0,0,0,0.2);
+    }
+    header{display:flex; gap:12px; align-items:center; margin-bottom:14px;}
+    header img{width:64px;height:64px;border-radius:8px;object-fit:cover;box-shadow:0 8px 20px rgba(0,0,0,0.18);}
+    h1{margin:0;color:#111827;}
+    .muted{color:#6b7280;font-size:13px;}
+    .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;}
+    select,input{padding:10px;border-radius:10px;border:1px solid #e6e6f0;width:100%;}
+    .col { flex:1; min-width:180px; }
+    .btn { background: linear-gradient(90deg,var(--bg1),var(--bg2)); color:white;border:0;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:600; }
+    .info { background:#f8fafc;padding:12px;border-radius:10px;border:1px solid #eef2ff; }
+    .progressBar { width:100%; background:#eef2ff;height:14px;border-radius:999px;overflow:hidden; }
+    .progress { height:100%; background:linear-gradient(90deg,#34d399,#3b82f6); }
+    .danger { background:#ef4444; color:white; padding:8px 10px; border-radius:8px; cursor:pointer; border:0; }
+    .small { font-size:13px; color:#6b7280; }
+  </style>
 </head>
-<body class="bg-gray-50">
+<body>
   <div id="root"></div>
 
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    function SalesAgentInterface() {
-      const [agentName, setAgentName] = useState('');
-      const [department, setDepartment] = useState('');
-      const [target, setTarget] = useState('');
+    // agent data: localStorage keys 'agent:<id>' => {id,name,department,target,sales,password,createdAt}
+    function AgentInterface(){
+      const [agents, setAgents] = useState([]);
+      const [selectedId, setSelectedId] = useState('');
+      const [locked, setLocked] = useState(true);
+      const [password, setPassword] = useState('');
+      const [current, setCurrent] = useState(null);
       const [saleAmount, setSaleAmount] = useState('');
-      const [currentAgent, setCurrentAgent] = useState(null);
       const [message, setMessage] = useState('');
-      const [loading, setLoading] = useState(false);
 
-      useEffect(() => {
-        loadAgentData();
-      }, [agentName, department]);
+      useEffect(()=> {
+        loadAgents();
+        const onStorage = (e) => {
+          if (e.key && e.key.startsWith('agent:')) loadAgents();
+        };
+        window.addEventListener('storage', onStorage);
+        return () => window.removeEventListener('storage', onStorage);
+      }, []);
 
-      const loadAgentData = () => {
-        if (!agentName.trim() || !department) {
-          setCurrentAgent(null);
+      function loadAgents(){
+        const keys = Object.keys(localStorage).filter(k=>k.startsWith('agent:'));
+        const data = keys.map(k => JSON.parse(localStorage.getItem(k)));
+        // sort by name
+        data.sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+        setAgents(data);
+        // if current exists, refresh
+        if (selectedId){
+          const found = data.find(d=>d.id===selectedId);
+          setCurrent(found || null);
+        }
+      }
+
+      function unlock(){
+        if (!selectedId){
+          alert('Pick an agent from the dropdown first');
           return;
         }
-
-        const key = `agent:${department}:${agentName.toLowerCase()}`;
-        const data = localStorage.getItem(key);
-        if (data) {
-          setCurrentAgent(JSON.parse(data));
+        const a = agents.find(x => x.id === selectedId);
+        if (!a){
+          alert('Agent not found (maybe deleted). Refresh page.');
+          return;
+        }
+        if (a.password === password){
+          setCurrent(a);
+          setLocked(false);
+          setPassword('');
+          setMessage('');
         } else {
-          setCurrentAgent(null);
+          setMessage('Incorrect password');
         }
-      };
+      }
 
-      const handleSetTarget = () => {
-        if (!agentName.trim() || !department || !target) {
-          setMessage('Please enter your name, department, and target amount');
-          return;
-        }
-
-        setLoading(true);
-        const agentData = {
-          name: agentName,
-          department,
-          target: parseFloat(target),
-          sales: currentAgent?.sales || 0,
-          lastUpdated: new Date().toISOString()
-        };
-        localStorage.setItem(`agent:${department}:${agentName.toLowerCase()}`, JSON.stringify(agentData));
-        setCurrentAgent(agentData);
-        setMessage('Target set successfully!');
-        setTarget('');
-        setLoading(false);
-      };
-
-      const handleAddSale = () => {
-        if (!agentName.trim() || !department || !saleAmount) {
-          setMessage('Please enter your name, department, and sale amount');
-          return;
-        }
-
-        if (!currentAgent) {
-          setMessage('Please set your target first');
-          return;
-        }
-
-        setLoading(true);
-        const updated = {
-          ...currentAgent,
-          sales: currentAgent.sales + parseFloat(saleAmount),
-          lastUpdated: new Date().toISOString()
-        };
-        localStorage.setItem(`agent:${department}:${agentName.toLowerCase()}`, JSON.stringify(updated));
-        setCurrentAgent(updated);
-        setMessage(`Sale of R${parseFloat(saleAmount).toLocaleString()} added successfully!`);
+      function logout(){
+        setLocked(true);
+        setCurrent(null);
+        setSelectedId('');
+        setPassword('');
         setSaleAmount('');
-        setLoading(false);
-      };
+        setMessage('');
+      }
 
-      const progress = currentAgent ? (currentAgent.sales / currentAgent.target) * 100 : 0;
+      function addSale(){
+        if (!current) return;
+        const num = Number(saleAmount);
+        if (!num || num <= 0){
+          setMessage('Enter a valid sale amount');
+          return;
+        }
+        const updated = {...current, sales: (Number(current.sales || 0) + num)};
+        localStorage.setItem(`agent:${current.id}`, JSON.stringify(updated));
+        setCurrent(updated);
+        setSaleAmount('');
+        setMessage(`Sale of R${num.toLocaleString()} recorded`);
+        // notify other tabs (storage event won't fire on same tab), so we set then remove a marker
+        localStorage.setItem('__axxess_last_update', String(Date.now()));
+      }
+
+      const progress = current && current.target ? (Number(current.sales || 0) / Number(current.target)) * 100 : 0;
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-yellow-100 p-6">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
-            <h1 className="text-2xl font-bold text-center mb-6 text-green-700">Sales Agent Dashboard</h1>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Your Name</label>
-              <input
-                type="text"
-                value={agentName}
-                onChange={(e) => setAgentName(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              />
+        <div className="panel">
+          <header>
+            <img src="https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.facebook.com%2FAxxess.Internet%2F&psig=AOvVaw2YpDMUMY_-TjVgyI3Cuy0U&ust=1761312122907000&source=images&cd=vfe&opi=89978449&ved=0CBUQjRxqFwoTCPja__C2upADFQAAAAAdAAAAABAK" alt="Axxess Logo" />
+            <div>
+              <h1>Axxess — Sales Agent</h1>
+              <div className="muted">Use your agent password to unlock your dashboard</div>
             </div>
+          </header>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Department</label>
-              <select
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">Select Department</option>
-                <option value="sales">Sales</option>
-                <option value="marketing">Marketing</option>
-                <option value="support">Support</option>
-              </select>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Set Target (R)</label>
-              <input
-                type="number"
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-              <button
-                onClick={handleSetTarget}
-                disabled={loading}
-                className="mt-2 w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700"
-              >
-                {loading ? 'Saving...' : 'Set Target'}
-              </button>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Add Sale (R)</label>
-              <input
-                type="number"
-                value={saleAmount}
-                onChange={(e) => setSaleAmount(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-              <button
-                onClick={handleAddSale}
-                disabled={loading}
-                className="mt-2 w-full bg-yellow-500 text-white py-2 rounded-lg hover:bg-yellow-600"
-              >
-                {loading ? 'Adding...' : 'Add Sale'}
-              </button>
-            </div>
-
-            {currentAgent && (
-              <div className="mb-4 text-center">
-                <p className="font-medium">Progress: {progress.toFixed(1)}%</p>
-                <div className="w-full bg-gray-200 rounded-full h-3 mt-2">
-                  <div
-                    className="bg-green-500 h-3 rounded-full"
-                    style={{ width: `${Math.min(progress, 100)}%` }}
-                  ></div>
-                </div>
-                <p className="mt-2 text-sm text-gray-700">
-                  Sales: R{currentAgent.sales.toLocaleString()} / R{currentAgent.target.toLocaleString()}
-                </p>
+          <div style={{marginTop:8}}>
+            <div className="row">
+              <div className="col">
+                <label className="small">Select Agent</label>
+                <select value={selectedId} onChange={e=>{ setSelectedId(e.target.value); setLocked(true); setCurrent(null); setMessage(''); }}>
+                  <option value="">-- Choose agent --</option>
+                  {agents.map(a => <option key={a.id} value={a.id}>{a.name} — {a.department}</option>)}
+                </select>
               </div>
-            )}
+              <div className="col" style={{minWidth:220}}>
+                <label className="small">Agent Password</label>
+                <input type="password" value={password} placeholder="Enter agent password" onChange={e=>setPassword(e.target.value)} />
+              </div>
+              <div style={{display:'flex', alignItems:'flex-end', gap:8}}>
+                <button className="btn" onClick={unlock} disabled={!selectedId}>Unlock</button>
+                <button className="danger" onClick={logout}>Logout</button>
+              </div>
+            </div>
 
-            {message && <p className="text-center text-sm text-gray-700 mt-2">{message}</p>}
+            {message && <div style={{marginTop:12}} className="small">{message}</div>}
+
+            {!locked && current ? (
+              <div style={{marginTop:18, display:'grid', gridTemplateColumns:'1fr 320px', gap:16}}>
+                <div>
+                  <div className="info">
+                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                      <div>
+                        <div style={{fontSize:18, fontWeight:700}}>{current.name}</div>
+                        <div className="muted">{current.department}</div>
+                      </div>
+                      <div style={{textAlign:'right'}}>
+                        <div className="small">Target</div>
+                        <div style={{fontWeight:700}}>R {Number(current.target).toLocaleString()}</div>
+                        <div className="small" style={{marginTop:6}}>Sales: R {Number(current.sales || 0).toLocaleString()}</div>
+                      </div>
+                    </div>
+
+                    <div style={{marginTop:12}}>
+                      <div className="small">Progress</div>
+                      <div className="progressBar" style={{marginTop:8}}>
+                        <div className="progress" style={{width: Math.min(progress,100) + '%'}} />
+                      </div>
+                      <div style={{marginTop:8, fontWeight:700}}>{progress.toFixed(1)}%</div>
+                    </div>
+                  </div>
+
+                  <div style={{marginTop:12}}>
+                    <label className="small">Log Sale (R)</label>
+                    <div style={{display:'flex', gap:8}}>
+                      <input type="number" value={saleAmount} onChange={e=>setSaleAmount(e.target.value)} placeholder="Amount" />
+                      <button className="btn" onClick={addSale}>Add</button>
+                    </div>
+                    <div className="small" style={{marginTop:8}}>Sales you log update the TV dashboard automatically.</div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="info">
+                    <div style={{fontWeight:700}}>Quick Stats</div>
+                    <div style={{marginTop:10}}>
+                      <div className="small">Target</div>
+                      <div>R {Number(current.target).toLocaleString()}</div>
+                    </div>
+                    <div style={{marginTop:10}}>
+                      <div className="small">Sales</div>
+                      <div>R {Number(current.sales || 0).toLocaleString()}</div>
+                    </div>
+                    <div style={{marginTop:10}}>
+                      <div className="small">Last updated</div>
+                      <div className="small muted">{ new Date(current.createdAt || Date.now()).toLocaleString() }</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{marginTop:18}} className="muted">Select your name and enter your password to access your personal dashboard.</div>
+            )}
           </div>
         </div>
       );
     }
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<SalesAgentInterface />);
+    ReactDOM.createRoot(document.getElementById('root')).render(<AgentInterface />);
   </script>
-
 </body>
 </html>
