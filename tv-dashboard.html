@@ -17,59 +17,112 @@
 <body>
   <div id="root"></div>
 
-  <script type="text/babel">
-    const { useEffect, useState } = React;
+<script type="text/babel">
+  const { useEffect, useState } = React;
 
-    function Dashboard() {
-      const [agents, setAgents] = useState([]);
-      const [time, setTime] = useState(new Date());
+  function Dashboard() {
+    const [agents, setAgents] = useState([]);
+    const [time, setTime] = useState(new Date());
 
-      useEffect(() => {
-        lucide.createIcons();
-        setAgents([
-          { name: "John", sales: 75, target: 100 },
-          { name: "Lerato", sales: 50, target: 100 },
-          { name: "Chad", sales: 110, target: 100 }
-        ]);
-        const timer = setInterval(() => setTime(new Date()), 1000);
-        return () => clearInterval(timer);
-      }, []);
+    useEffect(() => {
+      lucide.createIcons();
+      loadAgents();
 
-      const getColor = p => p>=100?"bg-green-500":p>=75?"bg-blue-500":p>=50?"bg-yellow-500":"bg-red-500";
+      const refresh = setInterval(() => {
+        setTime(new Date());
+        loadAgents();
+      }, 5000);
 
-      return (
-        <div className="p-8 flex flex-col items-center gap-8">
-          <div className="flex justify-between w-full max-w-5xl items-center">
-            <div className="flex gap-3 items-center">
-              <img className="logo" src="https://scontent-cpt1-1.xx.fbcdn.net/v/t39.30808-6/297076908_5528896830478718_3290314377451029782_n.png?_nc_cat=104&ccb=1-7&_nc_sid=bd6e70&_nc_ohc=6bZyi76hVbYQ7kNvgEbLpl8&_nc_ht=scontent-cpt1-1.xx&oh=00_AYCjz6djI4I05x6WEC7mZ7WZTf8t62eYlJLu0kAsgPSV6A&oe=672F58AA"/>
-              <h1 className="text-3xl font-bold">Sales Dashboard</h1>
-            </div>
-            <div className="text-right">
-              <p className="text-xl font-semibold">{time.toLocaleTimeString()}</p>
-              <p className="text-sm opacity-80">{time.toLocaleDateString()}</p>
-            </div>
+      return () => clearInterval(refresh);
+    }, []);
+
+    const loadAgents = () => {
+      try {
+        const keys = Object.keys(localStorage).filter(k => k.startsWith("agent:"));
+        let data = keys.map(k => JSON.parse(localStorage.getItem(k)));
+
+        // Demo fallback
+        if (data.length === 0) {
+          data = [
+            { id: 1, name: "John", sales: 75, target: 100 },
+            { id: 2, name: "Lerato", sales: 50, target: 100 },
+            { id: 3, name: "Chad", sales: 110, target: 100 },
+          ];
+        }
+
+        setAgents(data);
+      } catch (err) {
+        console.error("Error loading agents:", err);
+      }
+    };
+
+    const getColor = p =>
+      p >= 100 ? "bg-green-500" :
+      p >= 75 ? "bg-blue-500" :
+      p >= 50 ? "bg-yellow-500" :
+      "bg-red-500";
+
+    return (
+      <div className="p-8 flex flex-col items-center gap-8">
+        <div className="flex justify-between w-full max-w-5xl items-center">
+          <div className="flex gap-3 items-center">
+            <img className="logo" src="https://scontent-cpt1-1.xx.fbcdn.net/v/t39.30808-6/297076908_5528896830478718_3290314377451029782_n.png?_nc_cat=104&ccb=1-7&_nc_sid=bd6e70&_nc_ohc=6bZyi76hVbYQ7kNvgEbLpl8&_nc_ht=scontent-cpt1-1.xx&oh=00_AYCjz6djI4I05x6WEC7mZ7WZTf8t62eYlJLu0kAsgPSV6A&oe=672F58AA" />
+            <h1 className="text-3xl font-bold">Sales Dashboard</h1>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
-            {agents.map((a,i)=>{
-              const p=(a.sales/a.target)*100;
-              return (
-                <div key={i} className="bg-white bg-opacity-20 rounded-2xl p-5 text-center backdrop-blur-md shadow-lg">
-                  <i data-lucide="trophy" className="lucide mb-2 text-yellow-300"></i>
-                  <h2 className="text-2xl font-bold">{a.name}</h2>
-                  <p className="text-lg font-semibold mb-3">{p.toFixed(1)}%</p>
-                  <div className="w-full bg-gray-300 rounded-full h-4 overflow-hidden">
-                    <div className={`h-full ${getColor(p)}`} style={{width:`${Math.min(p,100)}%`}}></div>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="text-right">
+            <p className="text-xl font-semibold">{time.toLocaleTimeString()}</p>
+            <p className="text-sm opacity-80">{time.toLocaleDateString()}</p>
           </div>
         </div>
-      );
-    }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<Dashboard />);
-  </script>
+        {/* Team Progress */}
+        <div className="bg-white bg-opacity-20 rounded-2xl p-6 backdrop-blur-md text-center max-w-3xl w-full">
+          <div className="flex justify-center items-center gap-3 mb-3">
+            <i data-lucide="trending-up" className="lucide text-yellow-300"></i>
+            <h2 className="text-2xl font-bold">Team Progress</h2>
+          </div>
+          {(() => {
+            const totalSales = agents.reduce((s,a)=>s+a.sales,0);
+            const totalTarget = agents.reduce((s,a)=>s+a.target,0);
+            const percent = totalTarget ? (totalSales/totalTarget)*100 : 0;
+            return (
+              <>
+                <p className="text-5xl font-extrabold mb-2">{percent.toFixed(1)}%</p>
+                <div className="w-full bg-gray-300 rounded-full h-5 overflow-hidden">
+                  <div className={`h-full ${getColor(percent)}`} style={{width:`${Math.min(percent,100)}%`}}></div>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+
+        {/* Agents */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
+          {agents.map((a,i)=>{
+            const p=(a.sales/a.target)*100;
+            return (
+              <div key={i} className="bg-white bg-opacity-20 rounded-2xl p-5 text-center backdrop-blur-md shadow-lg">
+                <i data-lucide="trophy" className="lucide mb-2 text-yellow-300"></i>
+                <h2 className="text-2xl font-bold">{a.name}</h2>
+                <p className="text-lg font-semibold mb-3">{p.toFixed(1)}%</p>
+                <div className="w-full bg-gray-300 rounded-full h-4 overflow-hidden">
+                  <div className={`h-full ${getColor(p)}`} style={{width:`${Math.min(p,100)}%`}}></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-10 text-lg font-semibold opacity-90 animate-pulse">
+          💜 Keep up the great work, Team Axxess! 💜
+        </div>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<Dashboard />);
+</script>
+
 </body>
 </html>
+
