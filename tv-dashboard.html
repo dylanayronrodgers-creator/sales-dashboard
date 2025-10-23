@@ -1,89 +1,169 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>TV Dashboard — Axxess</title>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Axxess Sales TV Dashboard</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>
-    :root{--bg1:#667eea;--bg2:#764ba2;}
-    *{box-sizing:border-box;}
-    body{
-      margin:0; min-height:100vh; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-      background: linear-gradient(135deg,var(--bg1),var(--bg2)); color:white; display:flex; align-items:center; justify-content:center; padding:20px;
-    }
-    .wrap { width:100%; max-width:1200px; }
-    header { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
-    header img { width:72px; height:72px; border-radius:10px; object-fit:cover; box-shadow:0 10px 30px rgba(0,0,0,0.3); }
-    h1 { margin:0; font-size:28px; }
-    .grid { display:grid; gap:18px; grid-template-columns: 1fr 1fr; }
-    .card { background: rgba(255,255,255,0.06); padding:14px; border-radius:14px; box-shadow:0 8px 20px rgba(0,0,0,0.25); }
-    .agentRow { display:flex; align-items:center; justify-content:space-between; padding:10px 6px; border-radius:10px; }
-    .agentLeft { display:flex; gap:12px; align-items:center; }
-    .pill { background: rgba(255,255,255,0.08); padding:6px 10px; border-radius:999px; font-weight:700; }
-    .barOuter { width:240px; height:12px; background: rgba(255,255,255,0.06); border-radius:999px; overflow:hidden; }
-    .barInner { height:100%; background: linear-gradient(90deg,#34d399,#3b82f6); }
-    .center { text-align:center; }
-    .big { font-size:36px; font-weight:800; }
-    .muted { opacity:0.9; font-size:15px; }
-    @media (max-width:900px){
-      .grid { grid-template-columns: 1fr; }
-      .barOuter { width:160px; }
-      .big { font-size:28px; }
-    }
-  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <div id="root" class="wrap"></div>
+<body class="bg-gradient-to-br from-[#667eea] to-[#764ba2] min-h-screen text-white">
+  <div id="root"></div>
 
   <script type="text/babel">
     const { useState, useEffect } = React;
+    const { Trophy, TrendingUp, Clock } = lucideReact;
 
-    function TVDashboard(){
+    function SalesTVDashboard() {
       const [agents, setAgents] = useState([]);
-      const [now, setNow] = useState(Date.now());
+      const [loading, setLoading] = useState(true);
+      const [currentTime, setCurrentTime] = useState(new Date());
 
-      useEffect(()=> {
-        load();
-        const i = setInterval(()=> { load(); }, 5000);
-        const tick = setInterval(()=> setNow(Date.now()), 1000);
-        // listen to storage events
-        const onStorage = (e) => {
-          if (e.key && (e.key.startsWith('agent:') || e.key === '__axxess_last_update')){
-            load();
-          }
+      useEffect(() => {
+        loadAgents();
+        const interval = setInterval(loadAgents, 5000);
+        const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => {
+          clearInterval(interval);
+          clearInterval(clockInterval);
         };
-        window.addEventListener('storage', onStorage);
-        return ()=> { clearInterval(i); clearInterval(tick); window.removeEventListener('storage', onStorage); }
       }, []);
 
-      function load(){
-        const keys = Object.keys(localStorage).filter(k=>k.startsWith('agent:'));
-        const data = keys.map(k => JSON.parse(localStorage.getItem(k))).filter(Boolean);
-        // sort by progress desc
-        data.forEach(a => { a.progress = a.target ? (Number(a.sales || 0) / Number(a.target)) * 100 : 0; });
-        data.sort((a,b)=> (b.progress || 0) - (a.progress || 0));
-        setAgents(data);
-      }
+      const loadAgents = async () => {
+        try {
+          const result = await window.storage.list("agent:", true);
+          if (result && result.keys) {
+            const agentData = await Promise.all(
+              result.keys.map(async (key) => {
+                try {
+                  const data = await window.storage.get(key, true);
+                  return data ? JSON.parse(data.value) : null;
+                } catch {
+                  return null;
+                }
+              })
+            );
+            setAgents(agentData.filter((a) => a !== null));
+          }
+        } catch (error) {
+          console.error("Error loading agents:", error);
+        }
+        setLoading(false);
+      };
 
-      // Team totals use all agents' target+sales
-      const teamSales = agents.reduce((s,a)=> s + Number(a.sales || 0), 0);
-      const teamTarget = agents.reduce((s,a)=> s + Number(a.target || 0), 0);
-      const teamProgress = teamTarget > 0 ? (teamSales / teamTarget) * 100 : 0;
+      const calculateTeamStats = (deptAgents) => {
+        const totalSales = deptAgents.reduce((sum, a) => sum + (a.sales || 0), 0);
+        const totalTarget = deptAgents.reduce((sum, a) => sum + (a.target || 0), 0);
+        const progress = totalTarget > 0 ? (totalSales / totalTarget) * 100 : 0;
+        return { totalSales, totalTarget, progress };
+      };
+
+      const salesDept = agents.filter((a) => a.department === "Sales");
+      const clientCareDept = agents.filter((a) => a.department === "Client Care");
+
+      const salesStats = calculateTeamStats(salesDept);
+      const clientCareStats = calculateTeamStats(clientCareDept);
+
+      const getBarColor = (progress) => {
+        if (progress >= 100) return "bg-green-400";
+        if (progress >= 75) return "bg-blue-400";
+        if (progress >= 50) return "bg-yellow-400";
+        return "bg-red-400";
+      };
+
+      const DepartmentSection = ({ title, agents, stats }) => (
+        <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 shadow-2xl mb-10">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-4xl font-bold flex items-center gap-3">
+              <TrendingUp className="w-10 h-10" /> {title}
+            </h2>
+            <div className="text-right">
+              <p className="text-sm opacity-80">Team Progress</p>
+              <p className="text-3xl font-bold text-green-300">{stats.progress.toFixed(1)}%</p>
+            </div>
+          </div>
+
+          <div className="w-full bg-white/20 rounded-full h-4 overflow-hidden mb-8">
+            <div
+              className={`h-full transition-all duration-1000 ${getBarColor(stats.progress)}`}
+              style={{ width: `${Math.min(stats.progress, 100)}%` }}
+            ></div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {agents.length === 0 ? (
+              <p className="text-gray-200 text-center col-span-2">No agents found</p>
+            ) : (
+              agents.map((a, idx) => {
+                const progress = a.target > 0 ? (a.sales / a.target) * 100 : 0;
+                return (
+                  <div
+                    key={a.id}
+                    className="bg-white/10 p-6 rounded-2xl shadow-md transition-transform hover:scale-[1.02]"
+                  >
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-2xl font-semibold">{a.name}</h3>
+                      {idx === 0 && <Trophy className="text-yellow-400 w-8 h-8" />}
+                    </div>
+                    <div className="w-full bg-white/20 rounded-full h-3 mb-2">
+                      <div
+                        className={`h-full ${getBarColor(progress)} transition-all duration-1000`}
+                        style={{ width: `${Math.min(progress, 100)}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-sm opacity-80">{progress.toFixed(1)}% to target</p>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      );
+
+      const formattedTime = currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      const formattedDate = currentTime.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 
       return (
-        <div>
-          <header>
-            <img src="https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.facebook.com%2FAxxess.Internet%2F&psig=AOvVaw2YpDMUMY_-TjVgyI3Cuy0U&ust=1761312122907000&source=images&cd=vfe&opi=89978449&ved=0CBUQjRxqFwoTCPja__C2upADFQAAAAAdAAAAABAK" alt="Logo" />
-            <div>
-              <h1>Axxess — Live Sales TV</h1>
-              <div className="muted">Displaying progress % only. Team totals drive the team progress metric.</div>
-            </div>
-          </header>
+        <div className="min-h-screen p-8 relative">
+          {/* Clock */}
+          <div className="absolute top-6 right-8 text-right">
+            <p className="text-2xl font-semibold">{formattedTime}</p>
+            <p className="text-sm opacity-80">{formattedDate}</p>
+          </div>
 
-          <div className="grid" style={{marginTop:12}}>
-            <div className="card">
-              <div className="center">
-                <
+          {/* Logo */}
+          <div className="flex justify-center mb-10">
+            <img
+              src="https://scontent.fplz1-1.fna.fbcdn.net/v/t39.30808-6/272700933_5148348905178892_6403204965564743457_n.png?_nc_cat=108&ccb=1-7&_nc_sid=783fdb&_nc_ohc=AA7lmVPRCSsQ7kNvgF0Q5T4&_nc_ht=scontent.fplz1-1.fna&oh=00_AYCgg3vGtrmWktSrxniEytP9G9-8A0uKjM9ac1vw4rMXqA&oe=6768C0E9"
+              alt="Axxess Logo"
+              className="h-24 drop-shadow-lg"
+            />
+          </div>
+
+          <h1 className="text-5xl font-bold mb-10 text-white drop-shadow-md text-center">
+            Axxess Sales Performance Dashboard
+          </h1>
+
+          {loading ? (
+            <p className="text-center text-lg text-gray-100">Loading data...</p>
+          ) : (
+            <>
+              <DepartmentSection title="Sales Department" agents={salesDept} stats={salesStats} />
+              <DepartmentSection title="Client Care Department" agents={clientCareDept} stats={clientCareStats} />
+            </>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<SalesTVDashboard />);
+  </script>
+
+  <script src="https://unpkg.com/lucide-react@latest/dist/lucide-react.min.js"></script>
+
+</body>
+</html>
