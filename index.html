@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Dashboard System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 { 
+            font-size: 3.5em; 
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            font-size: 1.3em;
+            margin-bottom: 50px;
+            opacity: 0.9;
+        }
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 40px;
+        }
+        .button {
+            display: block;
+            padding: 30px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 15px;
+            font-size: 1.3em;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .button:hover { 
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0,0,0,0.2);
+        }
+        .button .icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        .tv { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+        .agent { background: linear-gradient(135deg, #f093fb, #f5576c); color: white; }
+        .admin { background: linear-gradient(135deg, #4facfe, #00f2fe); color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏆 Sales Dashboard System</h1>
+        <p class="subtitle">Choose your access point</p>
+        
+        <div class="button-grid">
+            <a href="tv-dashboard.html" class="button tv">
+                <div class="icon">📺</div>
+                TV Dashboard<br>
+                <small style="font-size: 0.7em; opacity: 0.8;">Display on office TV</small>
+            </a>
+            
+            <a href="agent-interface.html" class="button agent">
+                <div class="icon">👤</div>
+                Sales Agent<br>
+                <small style="font-size: 0.7em; opacity: 0.8;">Log your sales</small>
+            </a>
+            
+            <a href="management-console.html" class="button admin">
+                <div class="icon">🔒</div>
+                Management<br>
+                <small style="font-size: 0.7em; opacity: 0.8;">Admin access</small>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
