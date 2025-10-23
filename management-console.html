@@ -12,7 +12,422 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        // PASTE THE ENTIRE REACT CODE FROM "Management Console" ARTIFACT HERE
+      import React, { useState, useEffect } from 'react';
+import { Shield, UserPlus, Target, Trash2, RefreshCw, Eye, EyeOff } from 'lucide-react';
+
+export default function ManagementConsole() {
+  const [authenticated, setAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [agents, setAgents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  
+  const [newAgent, setNewAgent] = useState({
+    name: '',
+    department: 'Sales',
+    target: ''
+  });
+
+  const ADMIN_PASSWORD = 'admin123';
+
+  useEffect(() => {
+    if (authenticated) {
+      loadAgents();
+    }
+  }, [authenticated]);
+
+  const loadAgents = async () => {
+    setLoading(true);
+    try {
+      const result = await window.storage.list('agent:', true);
+      if (result && result.keys) {
+        const agentData = await Promise.all(
+          result.keys.map(async (key) => {
+            try {
+              const data = await window.storage.get(key, true);
+              return data ? JSON.parse(data.value) : null;
+            } catch {
+              return null;
+            }
+          })
+        );
+        setAgents(agentData.filter(a => a !== null));
+      }
+    } catch (error) {
+      console.error('Error loading agents:', error);
+      setAgents([]);
+    }
+    setLoading(false);
+  };
+
+  const handleLogin = () => {
+    if (password === ADMIN_PASSWORD) {
+      setAuthenticated(true);
+      setPassword('');
+    } else {
+      alert('Incorrect password');
+    }
+  };
+
+  const handleAddAgent = async () => {
+    if (!newAgent.name || !newAgent.target) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    const agent = {
+      id: `agent_${Date.now()}`,
+      name: newAgent.name,
+      department: newAgent.department,
+      target: parseFloat(newAgent.target),
+      sales: 0,
+      salesHistory: [],
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      await window.storage.set(`agent:${agent.id}`, JSON.stringify(agent), true);
+      setAgents([...agents, agent]);
+      setNewAgent({ name: '', department: 'Sales', target: '' });
+      alert('Agent added successfully!');
+    } catch (error) {
+      alert('Error adding agent: ' + error.message);
+    }
+  };
+
+  const handleUpdateTarget = async (agentId, newTarget) => {
+    const agent = agents.find(a => a.id === agentId);
+    if (!agent) return;
+
+    const updatedAgent = { ...agent, target: parseFloat(newTarget) };
+    
+    try {
+      await window.storage.set(`agent:${agentId}`, JSON.stringify(updatedAgent), true);
+      setAgents(agents.map(a => a.id === agentId ? updatedAgent : a));
+      alert('Target updated successfully!');
+    } catch (error) {
+      alert('Error updating target: ' + error.message);
+    }
+  };
+
+  const handleDeleteAgent = async (agentId) => {
+    if (!window.confirm('Are you sure you want to delete this agent? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await window.storage.delete(`agent:${agentId}`, true);
+      setAgents(agents.filter(a => a.id !== agentId));
+      alert('Agent deleted successfully!');
+    } catch (error) {
+      alert('Error deleting agent: ' + error.message);
+    }
+  };
+
+  const handleResetSales = async (agentId) => {
+    if (!window.confirm('Are you sure you want to reset this agent sales to zero?')) {
+      return;
+    }
+
+    const agent = agents.find(a => a.id === agentId);
+    if (!agent) return;
+
+    const updatedAgent = { ...agent, sales: 0, salesHistory: [] };
+    
+    try {
+      await window.storage.set(`agent:${agentId}`, JSON.stringify(updatedAgent), true);
+      setAgents(agents.map(a => a.id === agentId ? updatedAgent : a));
+      alert('Sales reset successfully!');
+    } catch (error) {
+      alert('Error resetting sales: ' + error.message);
+    }
+  };
+
+  const handleResetAll = async () => {
+    if (!window.confirm('Are you sure you want to reset ALL agents sales? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const updatedAgents = await Promise.all(
+        agents.map(async (agent) => {
+          const updated = { ...agent, sales: 0, salesHistory: [] };
+          await window.storage.set(`agent:${agent.id}`, JSON.stringify(updated), true);
+          return updated;
+        })
+      );
+      setAgents(updatedAgents);
+      alert('All sales reset successfully!');
+    } catch (error) {
+      alert('Error resetting all sales: ' + error.message);
+    }
+  };
+
+  const handleKeyPress = (e, action) => {
+    if (e.key === 'Enter') {
+      action();
+    }
+  };
+
+  if (!authenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+          <div className="flex justify-center mb-6">
+            <div className="bg-purple-100 p-4 rounded-full">
+              <Shield className="w-12 h-12 text-purple-600" />
+            </div>
+          </div>
+          <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">
+            Management Console
+          </h1>
+          <p className="text-center text-gray-600 mb-6">
+            Enter admin password to continue
+          </p>
+          <div>
+            <div className="relative mb-4">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={(e) => handleKeyPress(e, handleLogin)}
+                placeholder="Admin Password"
+                className="w-full px-4 py-3 pr-12 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-lg"
+              />
+              <button
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+            <button
+              onClick={handleLogin}
+              className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors"
+            >
+              Login
+            </button>
+          </div>
+          <p className="text-sm text-gray-500 text-center mt-4">
+            Default password: admin123
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
+                <Shield className="w-8 h-8 text-purple-600" />
+                Management Console
+              </h1>
+              <p className="text-gray-600 mt-1">Manage agents, targets, and sales data</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={loadAgents}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Refresh
+              </button>
+              <button
+                onClick={() => setAuthenticated(false)}
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-2xl shadow-xl p-6">
+              <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <UserPlus className="w-6 h-6 text-green-600" />
+                Add New Agent
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Agent Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newAgent.name}
+                    onChange={(e) => setNewAgent({ ...newAgent, name: e.target.value })}
+                    placeholder="John Doe"
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Department
+                  </label>
+                  <select
+                    value={newAgent.department}
+                    onChange={(e) => setNewAgent({ ...newAgent, department: e.target.value })}
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
+                  >
+                    <option value="Sales">Sales</option>
+                    <option value="Client Care">Client Care</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sales Target (R)
+                  </label>
+                  <input
+                    type="number"
+                    value={newAgent.target}
+                    onChange={(e) => setNewAgent({ ...newAgent, target: e.target.value })}
+                    placeholder="50000"
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+                <button
+                  onClick={handleAddAgent}
+                  className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <UserPlus className="w-5 h-5" />
+                  Add Agent
+                </button>
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <button
+                  onClick={handleResetAll}
+                  className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <RefreshCw className="w-5 h-5" />
+                  Reset All Sales
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-2xl shadow-xl p-6">
+              <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                Agent Management ({agents.length} agents)
+              </h2>
+              
+              {loading ? (
+                <div className="text-center py-8 text-gray-500">Loading agents...</div>
+              ) : agents.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No agents yet. Add your first agent to get started!
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {agents
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((agent) => {
+                      const progress = agent.target > 0 ? (agent.sales / agent.target) * 100 : 0;
+                      return (
+                        <div
+                          key={agent.id}
+                          className="border-2 border-gray-200 rounded-xl p-4 hover:border-purple-300 transition-colors"
+                        >
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <h3 className="text-xl font-bold text-gray-800">{agent.name}</h3>
+                              <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                                agent.department === 'Sales' 
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-green-100 text-green-700'
+                              }`}>
+                                {agent.department}
+                              </span>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleResetSales(agent.id)}
+                                className="p-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors"
+                                title="Reset Sales"
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteAgent(agent.id)}
+                                className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                                title="Delete Agent"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 mb-3">
+                            <div>
+                              <p className="text-sm text-gray-600">Current Sales</p>
+                              <p className="text-xl font-bold text-gray-800">
+                                R {agent.sales.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-600">Progress</p>
+                              <p className="text-xl font-bold text-purple-600">
+                                {progress.toFixed(1)}%
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mb-3">
+                            <div className="flex justify-between text-sm text-gray-600 mb-1">
+                              <span>Target</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <input
+                                type="number"
+                                defaultValue={agent.target}
+                                id={`target-${agent.id}`}
+                                className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
+                              />
+                              <button
+                                onClick={() => {
+                                  const input = document.getElementById(`target-${agent.id}`);
+                                  if (input && input.value) {
+                                    handleUpdateTarget(agent.id, input.value);
+                                  }
+                                }}
+                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                              >
+                                <Target className="w-4 h-4" />
+                                Update
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-500 ${
+                                progress >= 100 ? 'bg-green-500' : 
+                                progress >= 75 ? 'bg-blue-500' : 
+                                progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}
+                              style={{ width: `${Math.min(progress, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
     </script>
 </body>
+
 </html>
